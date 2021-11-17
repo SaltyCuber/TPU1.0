@@ -1,7 +1,7 @@
 byte instrReg;
-byte regs[8];
+byte regs[8] = [0,0,0,0,0,0,0xFF,0];
 // pin 2 will be cpu clock pin
-byte CLK = 2;
+const byte CLK = 2;
 byte imm;
 byte instr;
 byte reg;
@@ -12,8 +12,6 @@ byte pmemBank = 0;
 byte vmemBank = 1;
 
 void setup() {
-  regs[7] = 0;
-  regs[6] = 0xFF;
   attachInterrupt(digitalPinToInterrupt(CLK), onClock, RISING);
   DDRA = 255;
   DDRC = 255;
@@ -24,12 +22,12 @@ byte readMem(byte lower, byte upper) {
   DDRL = 0;
   PORTC = lower;
   PORTA = upper;
-  data = PINL;
+  byte data = PINL;
   return data;
   }
 
 byte calcFlags(int x) {
-  flags[] = {false,false,false,false,false,false,false,false};
+  bool flags[] = {false,false,false,false,false,false,false,false};
   if (x > 0xFF) {
     flags[0] = true;
     }
@@ -42,18 +40,18 @@ byte calcFlags(int x) {
   if ((x & 1) > 0) {
     flags[3] = true;
     }
-  byte out = 0
+  byte out = 0;
   for (int i = 0; i <=7; i++) {
     if (flags[i] == true) {
-      byte++;
+      out++;
       }
-    byte = byte << 1;
+    out = out << 1;
     }
-  return byte;
+  return out;
   }
 
 void onClock() {
-  instrReg = readMem(++regs[6]);
+  instrReg = readMem(++regs[6], pmemBank);
   instr = (instrReg & 0b11111000) >> 3;
   reg = instrReg & 0b00000111;
 
@@ -143,7 +141,7 @@ void onClock() {
 
     case 9:
       // OR : acc = acc | imm
-      imm = readMem(++regs[6]);
+      imm = readMem(++regs[6], pmemBank);
       regs[1] = byte(regs[1] | imm);
       regs[7] = calcFlags(regs[1]) | (regs[7] & 0b10000000);
       break;
@@ -156,7 +154,7 @@ void onClock() {
 
     case 11:
       // AND : acc = acc & imm
-      imm = readMem(++regs[6]);
+      imm = readMem(++regs[6],pmemBank);
       regs[1] = byte(regs[1] & imm);
       regs[7] = calcFlags(regs[1]) | (regs[7] & 0b10000000);
       break;
@@ -169,7 +167,7 @@ void onClock() {
 
     case 13:
       // MTA : acc = imm
-      regs[1] = readMem(++regs[6]);
+      regs[1] = readMem(++regs[6], pmemBank);
       regs[7] = calcFlags(regs[1]) | (regs[7] & 0b10000000);
       break;
 
@@ -181,7 +179,7 @@ void onClock() {
 
     case 15:
       // MTR : reg = imm
-      regs[reg] = readMem(++regs[6]);
+      regs[reg] = readMem(++regs[6],pmemBank);
       regs[7] = calcFlags(regs[reg]) | (regs[7] & 0b10000000);
       break;
 
