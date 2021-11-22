@@ -1,17 +1,20 @@
-byte instrReg;
 byte regs[8] = [0,0,0,0,0,0,0xFF,0];
 // pin 2 will be cpu clock pin
 const byte CLK = 2;
-byte imm;
-byte instr;
-byte reg;
+const byte RWB = 38;
 unsigned int temp;
 unsigned int temp1;
 byte oldCarry;
 byte pmemBank = 0;
 byte vmemBank = 1;
+byte imm;
+byte instr;
+byte reg;
+byte instrReg;
+
 
 void setup() {
+  pinMode(RWB, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(CLK), onClock, RISING);
   DDRA = 255;
   DDRC = 255;
@@ -19,6 +22,7 @@ void setup() {
 }
 
 byte readMem(byte lower, byte upper) {
+  digitalWrite(RWB, HIGH);
   DDRL = 0;
   PORTC = lower;
   PORTA = upper;
@@ -26,12 +30,21 @@ byte readMem(byte lower, byte upper) {
   return data;
 }
 
+void writeMem(byte lower, byte upper, byte data) {
+  digitalWrite(RWB, LOW);
+  DDRL = 0xFF;
+  PORTC = lower;
+  PORTA = upper;
+  PORTL = data;
+  return;
+}
+
 byte getImm() {
-  if (::regs[6] == 0xFF) {
-    ::pmemBank++;
+  if (regs[6] == 0xFF) {
+    pmemBank++;
   }
-  ::regs[6]++;
-  return readMem(::regs[6],::pmemBank);
+  regs[6]++;
+  return readMem(regs[6],pmemBank);
 }
 
 
@@ -60,12 +73,13 @@ byte calcFlags(int x) {
 }
 
 void onClock() {
+  if (regs[6] == 0xFF) {
+    pmemBank++;
+  }
   instrReg = readMem(++regs[6], pmemBank);
   instr = (instrReg & 0b11111000) >> 3;
   reg = instrReg & 0b00000111;
-
   switch (instr) {
-    
     case 0:
       // NOP
       break;
@@ -212,7 +226,7 @@ void onClock() {
 
     case 19:
       // BRS : branch to imm if bit set
-      if ((regs[7] & (1<<(reg-1)) == 1) {
+      if ((regs[7] & (1<<(reg)) == 1) {
         temp = pmemBank;
         regs[6] = getImm();
         pmemBank = temp;
@@ -221,7 +235,7 @@ void onClock() {
 
     case 20:
       // BRS : branch to acc if bit set
-      if ((regs[7] & (1<<(reg-1)) == 1) {
+      if ((regs[7] & (1<<(reg)) == 1) {
         temp = pmemBank;
         regs[6] = regs[1];
         pmemBank = temp;
@@ -230,7 +244,7 @@ void onClock() {
 
     case 21:
       // BNS : branch to imm if bit not set
-      if ((regs[7] & (1<<(reg-1)) == 0) {
+      if ((regs[7] & (1<<(reg)) == 0) {
         temp = pmemBank;
         regs[6] = getImm();
         pmemBank = temp;
@@ -239,7 +253,7 @@ void onClock() {
 
     case 22:
       // BNS : branch to acc if bit not set
-      if ((regs[7] & (1<<(reg-1)) == 1) {
+      if ((regs[7] & (1<<(reg)) == 1) {
         temp = pmemBank;
         regs[6] = regs[1];
         pmemBank = temp;
@@ -259,34 +273,98 @@ void onClock() {
 
     case 25:
       // STA : vmem[imm] = acc
+      imm = getImm();
+      writeMem(imm, vmemBank, regs[1]);
       break;
 
     case 26:
       // STA : vmem[reg] = acc
+      writemem(regs[reg], vmemBank, regs[1]);
       break;
 
     case 27:
       // INP : acc = data from port number imm
+      imm = getImm();
+      swtich (imm) {
+        // TPU 1.0 only utilizes 8 of the possible 256 i/o ports
+        case 0:
+          regs[1] = pmemBank;
+          break;
+
+        case 1:
+          regs[1] = vmemBank;
+          break;
+
+        case 2:
+
+          break;
+
+        case 3:
+          break;
+
+        case 4:
+          break;
+
+        case 5:
+          break;
+
+        case 6:
+          break;
+
+        case 7:
+          break;
+      }
       break;
 
     case 28:
       // OUT : send acc to port number imm
+      imm = getImm();
+      swtich (imm) {
+        case 0:
+          pmemBank = regs[1];
+          break;
+
+        case 1:
+          vmemBank = regs[1];
+          break;
+
+        case 2:
+          
+          break;
+
+        case 3:
+          break;
+
+        case 4:
+          break;
+
+        case 5:
+          break;
+
+        case 6:
+          break;
+
+        case 7:
+          break;
+      }
       break;
 
     case 29:
       // CLF : clear bit in CR
+      regs[7] = regs[7] & ~(1<<reg);
       break;
 
     case 30:
       // SEF : set bit in CR
+      regs[7] = regs[7] | (1<<reg);
       break;
 
     case 31:
-      // HLT : halt the system clock (tie clock pin high)
+      // HLT : halt the system clock
+      detachInterrupt(digitalPinToInterrupt(CLK));
       break;
 }}
 
 void loop() {
   // put your main code here, to run repeatedly:
 }
-
