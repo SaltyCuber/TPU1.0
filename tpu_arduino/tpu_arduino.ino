@@ -339,6 +339,7 @@ void onClock() {
           break;
 
         case 5:
+          Serial.print(char(regs[1]));
           break;
 
         case 6:
